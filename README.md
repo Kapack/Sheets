@@ -1,1 +1,1 @@
-# Google apps sheets script
+# Google apps sheets scripts
