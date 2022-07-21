@@ -1,20 +1,10 @@
 /** @OnlyCurrentDoc */
-function writeColorsFromNameSheet(sheet, colorSizes){
-  colorSizes.forEach(function(value){
-    let lastRow = sheet.getLastRow();
-    let nextRow = lastRow + 1;        
-    sheet.getRange('A' + nextRow).setValue(value.sku);
-    sheet.getRange('B' + nextRow).setValue(value.name);
-    sheet.getRange('C' + nextRow).setValue(value.color);
-    sheet.getRange('D' + nextRow).setValue(value.size);
-  });
-}
 
 /**
  * Create the Matrixify sheet from Magento Sheet
  */
 
-function ConvertMagentoToMatrixifySheet() {
+ function ConvertMagentoToMatrixifySheet() {
   const app = SpreadsheetApp;
   const activeSpreadsheet = app.getActiveSpreadsheet();  
   const initSheet = activeSpreadsheet.getSheetByName('Magento');
@@ -23,11 +13,15 @@ function ConvertMagentoToMatrixifySheet() {
   let allValues = initSheet.getRange("A2:J").getValues();
   // Remove empty cells from all values
   const values = allValues.filter(e=>e.join().replace(/,/g, "").length);
-  const finalValues = createFinalValues(values);
+  let finalValues = createFinalValues(values);
+  const intColorSizeObj = GetColorsAndSizeFromName()
+  replaceDuplicateColorsInSerie(finalValues, intColorSizeObj);
   // Clear Sheets
-  const matrixify = createAndClearSheet(activeSpreadsheet, 'Matrixify');
-  // Write sheets
-  writeMatrixifySheet(matrixify, finalValues);
+  // const matrixify = createAndClearSheet(activeSpreadsheet, 'Matrixify');
+  // const colorsFromNameSheet = createAndClearSheet(activeSpreadsheet, 'ColorsFromName');        
+  // Write Sheets
+  // writeMatrixifySheet(matrixify, finalValues);
+  // writeColorsFromNameSheet(colorsFromNameSheet, intColorSizeObj);
 }
 
 // Delete existing values from sheet (Except headers)
@@ -58,16 +52,16 @@ function createFinalValues(values){
     const description = value[6];
     const color = value[7];
     const qty = value[8];
-    const price = value[9]; 
+    const price = value[9];
 
     let finalValue = {
       'handle' : createHandle(sku),
       'variantSku' : sku,
-      'title': createParentContent(value, prevValue, title),
+      'title': createParentContent(value, prevValue, title, 'name'),
       'command': 'MERGE',
       'variantCommand' : 'MERGE',
       'tagsCommand' : 'MERGE',
-      'body': createParentContent(value, prevValue, description),
+      'body': createParentContent(value, prevValue, description, 'body'),
       'vendor' : 'urrem.dk',	
       'tags' : manufacturer + ',' + model,	
       'option1Name' : 'Color',	
@@ -99,19 +93,35 @@ function createFinalValues(values){
 }
 
 function createHandle(sku){
-    let skuSplit = sku.split('-');    
-    // remove last item of skuSplit
-    skuSplit.pop();
-    let handle = skuSplit.join('-');    
-    return handle;
+  let skuSplit = sku.split('-');    
+  // remove last item of skuSplit
+  skuSplit.pop();
+  let handle = skuSplit.join('-');    
+  return handle;
 }
-
 /**
  * A function that checks if current SKU belongs to the previous SKU
  * If product belongs to the same serie, only the parent (The first product) should have content (Title or desc)
  */
-function createParentContent(currentValue, previousValue, item) {  
+function createParentContent(currentValue, previousValue, item, type) {  
   var item = item;
+  if(type === 'name' && item.includes(' - ')) {
+    // Remove everything after last dash
+    let currentNameSplit = item.split(' - ');
+    currentNameSplit.pop()
+    // cast name back to string
+    var item = currentNameSplit.join(' ');
+  }
+
+  if(type === 'body'){
+    // Remove html
+    // if something between < and >
+    const htmlRegex = new RegExp("\<.*?\>");    
+    if(htmlRegex.test(item)){
+      var item = item.split(htmlRegex).join('');            
+    }    
+  }
+
   // If first item, there's no previousValue
   if(previousValue){
     const currentSku = currentValue[0];
@@ -132,11 +142,17 @@ function createParentContent(currentValue, previousValue, item) {
  * If colors contain more than one word, use the first
  */
 function createImageAltText(color){  
+  // Variant name has to be seperated by - (Shopify rule)
   if(color.includes('/')){
-    var color = color.replace('/', '_');
-    //const colorSplit = color.split('/');
-    //var color = colorSplit[0];     
+    var color = color.replace('/', '-');
+  }  
+  if(color.includes('+')){
+    var color = color.replace('+', '-');
   }
+  if(color.includes(' ')){
+    var color = color.replace(' ', '-');
+  }
+    
   return '#color_' + color.toLowerCase();  
 }
 
@@ -144,11 +160,32 @@ function createAdditionalImages(addImages){
   let additionalImages = [];
   if(addImages){
     let imagesSplit = addImages.split(',');        
-    let imagesUrls = imagesSplit.map(i => 'https://lux-case.com/media/catalog/product/' + i);
+    let imagesUrls = imagesSplit.map(i => 'https://lux-case.com/media/catalog/product' + i);
     additionalImages.push(imagesUrls);   
   }
   return additionalImages;
 }
+
+/**
+ * If there is duplicates value of colors, replace it with colors from the INT name (MagentoNameColors)
+ */
+function replaceDuplicateColorsInSerie(finalValues, intColorSizeObj){
+  finalValues.forEach(function(value) {
+    Logger.log(value.handle);
+  });
+  
+  
+  //for(var key, value in finalValues) {
+    //var value = finalValues[key];
+    
+
+    //Logger.log(finalValues.handle);
+  //}
+  //LCW01-103-006
+  
+  
+}
+
 
 function writeMatrixifySheet(sheet, finalValues){
   finalValues.forEach(function(finalValue) {
@@ -180,7 +217,7 @@ function writeMatrixifySheet(sheet, finalValues){
     sheet.getRange('X' + nextRow).setValue(finalValue.seoDescription);    
     sheet.getRange('Y' + nextRow).setValue(finalValue.status);
     if(finalValue.imageSrc[0]){
-      sheet.getRange('Z' + nextRow).setValue(finalValue.imageSrc[0].join(','));
+      sheet.getRange('Z' + nextRow).setValue(finalValue.imageSrc[0].join(';'));
     }
     sheet.getRange('AA' + nextRow).setValue(finalValue.imageAltText);
     sheet.getRange('AB' + nextRow).setValue(finalValue.variantCountryofOrigin);
@@ -193,8 +230,6 @@ function writeMatrixifySheet(sheet, finalValues){
 /**
  * Create ColorsFromName sheet from MagentoName (After last dash)
  */
-
-
 function GetColorsAndSizeFromName() {
   const app = SpreadsheetApp;
   const activeSpreadsheet = app.getActiveSpreadsheet();  
@@ -203,35 +238,35 @@ function GetColorsAndSizeFromName() {
   let allValues = initSheet.getRange("A2:B").getValues();
   const values = allValues.filter(e=>e.join().replace(/,/g, "").length);  
   const colorSizeObj = getColorsAndSizeFromName(values);
-  // Clear sheet
-  const colorsFromNameSheet = createAndClearSheet(activeSpreadsheet, 'ColorsFromName');
-  // Write Sheet
-  writeColorsFromNameSheet(colorsFromNameSheet, colorSizeObj);
-
+  return colorSizeObj;
 }
 
 function getColorsAndSizeFromName(values){
   let colorsObjList = [];
   values.forEach(function(value) {
     const name = value[1];
-    var size = '';
+    var size = 'One-size';
     // Get everything after last dash    
     let nameSplit = name.split(' - ');        
-    var afterLastDash = nameSplit.pop();    
+    var afterLastDash = nameSplit.pop();
+
     if(afterLastDash.includes(' Size: ')) {
       let afterLastDashSplit = afterLastDash.split(':');
       var size = afterLastDashSplit.pop();          
       // remove spaces
       var size = size.split(' ').join('');
       var afterLastDash = afterLastDash.replace(' Size: ' + size, '');
-      // Format the name
+      // Format the color name
       if(afterLastDash.endsWith(' /')) {
         var afterLastDash = afterLastDash.split(' /');
         afterLastDash.pop();
-        afterLastDash.join(' ');        
+        afterLastDash.join(' ');
       }
-    }    
+    }
 
+    if(afterLastDash === name){
+      var afterLastDash = '';
+    }    
     let colorsObj = {
       'sku': value[0],
       'name': name,
@@ -241,4 +276,15 @@ function getColorsAndSizeFromName(values){
     colorsObjList.push(colorsObj);
   });
   return colorsObjList;
+}
+
+function writeColorsFromNameSheet(sheet, colorSizes){
+  colorSizes.forEach(function(value){
+    let lastRow = sheet.getLastRow();
+    let nextRow = lastRow + 1;        
+    sheet.getRange('A' + nextRow).setValue(value.sku);
+    sheet.getRange('B' + nextRow).setValue(value.name);
+    sheet.getRange('C' + nextRow).setValue(value.color);
+    sheet.getRange('D' + nextRow).setValue(value.size);
+  });
 }
