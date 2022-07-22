@@ -1,27 +1,27 @@
 /** @OnlyCurrentDoc */
 
 /**
- * Create the Matrixify sheet from Magento Sheets
+ * Create the Matrixify sheet from Magento Sheet
  */
 
  function ConvertMagentoToMatrixifySheet() {
   const app = SpreadsheetApp;
   const activeSpreadsheet = app.getActiveSpreadsheet();  
   const initSheet = activeSpreadsheet.getSheetByName('Magento');
-  
   // Get Get all values.
   let allValues = initSheet.getRange("A2:J").getValues();
   // Remove empty cells from all values
   const values = allValues.filter(e=>e.join().replace(/,/g, "").length);
-  let finalValues = createFinalValues(values);
-  const intColorSizeObj = GetColorsAndSizeFromName()
-  replaceDuplicateColorsInSerie(finalValues, intColorSizeObj);
+  var finalValues = createFinalValues(values);
+  const intColorSizeObj = GetColorsAndSizeFromName();
+  var finalValues = replaceDuplicateColorsInSerie(finalValues, intColorSizeObj);
+  
   // Clear Sheets
-  // const matrixify = createAndClearSheet(activeSpreadsheet, 'Matrixify');
-  // const colorsFromNameSheet = createAndClearSheet(activeSpreadsheet, 'ColorsFromName');        
+  const matrixify = createAndClearSheet(activeSpreadsheet, 'Matrixify');
+  const colorsFromNameSheet = createAndClearSheet(activeSpreadsheet, 'ColorsFromName');        
   // Write Sheets
-  // writeMatrixifySheet(matrixify, finalValues);
-  // writeColorsFromNameSheet(colorsFromNameSheet, intColorSizeObj);
+  writeMatrixifySheet(matrixify, finalValues);  
+  writeColorsFromNameSheet(colorsFromNameSheet, intColorSizeObj);
 }
 
 // Delete existing values from sheet (Except headers)
@@ -142,17 +142,16 @@ function createParentContent(currentValue, previousValue, item, type) {
  * If colors contain more than one word, use the first
  */
 function createImageAltText(color){  
-  // Variant name has to be seperated by - (Shopify rule)
-  if(color.includes('/')){
-    var color = color.replace('/', '-');
-  }  
-  if(color.includes('+')){
-    var color = color.replace('+', '-');
-  }
-  if(color.includes(' ')){
-    var color = color.replace(' ', '-');
-  }
-    
+  //var str = "White / White Edge";
+  // Replace all special chars (Non letters).
+  var color = color.replace(/[^a-zA-Z]/g, "-");
+  // Split the string
+  var colorSplit = color.split('-');
+  // Remove all duplicates (When there's mulitple - in a row)
+  var colorSplit = colorSplit.filter(n => n);
+  // Cast back to string
+  var color = colorSplit.join('-');
+  
   return '#color_' + color.toLowerCase();  
 }
 
@@ -167,25 +166,31 @@ function createAdditionalImages(addImages){
 }
 
 /**
- * If there is duplicates value of colors, replace it with colors from the INT name (MagentoNameColors)
+ * If there is duplicates value of colors, 
+ * replace it with colors from the INT name (MagentoNameColors)
  */
-function replaceDuplicateColorsInSerie(finalValues, intColorSizeObj){
-  finalValues.forEach(function(value) {
-    Logger.log(value.handle);
+function replaceDuplicateColorsInSerie(finalValues, intColorSizeObj){    
+  finalValues.map((el, i) => {
+    finalValues.find((element, index) => {
+      // If handle and color is the same (Duplicate values)
+      if (i !== index && element.handle === el.handle && element.color === el.color) {     
+        // Go into colors object (From INT sheet), find matching sku and replace the color in finalValues          
+        intColorSizeObj.find(colorSizeObj => {
+          if (colorSizeObj['sku'] === el.variantSku) {
+            // If there is a color from the name
+            if(colorSizeObj['color']) {
+              // Replace color attribute
+              finalValues[i].option1Value = colorSizeObj['color'];              
+              // Replace alt tag from the new color
+              finalValues[i].imageAltText = colorSizeObj['imageAltText'];
+            }            
+          };
+        });
+      }
+    });
   });
-  
-  
-  //for(var key, value in finalValues) {
-    //var value = finalValues[key];
-    
-
-    //Logger.log(finalValues.handle);
-  //}
-  //LCW01-103-006
-  
-  
+  return finalValues;
 }
-
 
 function writeMatrixifySheet(sheet, finalValues){
   finalValues.forEach(function(finalValue) {
@@ -226,7 +231,6 @@ function writeMatrixifySheet(sheet, finalValues){
   });
 }
 
-
 /**
  * Create ColorsFromName sheet from MagentoName (After last dash)
  */
@@ -243,7 +247,7 @@ function GetColorsAndSizeFromName() {
 
 function getColorsAndSizeFromName(values){
   let colorsObjList = [];
-  values.forEach(function(value) {
+  values.forEach(function(value) {    
     const name = value[1];
     var size = 'One-size';
     // Get everything after last dash    
@@ -260,17 +264,19 @@ function getColorsAndSizeFromName(values){
       if(afterLastDash.endsWith(' /')) {
         var afterLastDash = afterLastDash.split(' /');
         afterLastDash.pop();
-        afterLastDash.join(' ');
+        // cast back to string
+        var afterLastDash = afterLastDash.join(' ');
       }
-    }
-
+    }    
     if(afterLastDash === name){
       var afterLastDash = '';
-    }    
+    }   
+    
     let colorsObj = {
       'sku': value[0],
       'name': name,
       'color': afterLastDash,
+      'imageAltText' : createImageAltText(afterLastDash),
       'size': size,
     };
     colorsObjList.push(colorsObj);
@@ -285,6 +291,7 @@ function writeColorsFromNameSheet(sheet, colorSizes){
     sheet.getRange('A' + nextRow).setValue(value.sku);
     sheet.getRange('B' + nextRow).setValue(value.name);
     sheet.getRange('C' + nextRow).setValue(value.color);
-    sheet.getRange('D' + nextRow).setValue(value.size);
+    sheet.getRange('D' + nextRow).setValue(value.imageAltText);
+    sheet.getRange('E' + nextRow).setValue(value.size);
   });
 }
