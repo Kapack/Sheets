@@ -1,7 +1,7 @@
 /** @OnlyCurrentDoc */
 
 /**
- * Create the Matrixify sheet from Magento Sheet
+ * Create the Matrixify sheet from Magento Sheets
  */
 
  function ConvertMagentoToMatrixifySheet() {
