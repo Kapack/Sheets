@@ -282,6 +282,7 @@ function getColorsAndSizeFromName(values){
     colorsObjList.push(colorsObj);
   });
   return colorsObjList;
+  #
 }
 
 function writeColorsFromNameSheet(sheet, colorSizes){
