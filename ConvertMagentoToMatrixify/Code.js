@@ -18,10 +18,10 @@
   
   // Clear Sheets
   const matrixify = createAndClearSheet(activeSpreadsheet, 'Matrixify');
-  //const colorsFromNameSheet = createAndClearSheet(activeSpreadsheet, 'ColorsFromName');        
+  const colorsFromNameSheet = createAndClearSheet(activeSpreadsheet, 'ColorsFromName');        
   // Write Sheets
   writeMatrixifySheet(matrixify, finalValues);  
-  //writeColorsFromNameSheet(colorsFromNameSheet, intColorSizeObj);
+  writeColorsFromNameSheet(colorsFromNameSheet, intColorSizeObj);
 }
 
 // Delete existing values from sheet (Except headers)
