@@ -29,4 +29,10 @@ function saveSheetToDriveFolder(){
       spreadSheetCopy.deleteSheet(sheetsCopy[i]);
     }
   }
+
+  MailApp.sendEmail({
+    to: "marketing5@wepack.se",
+    subject: "New Lux-case text has been written!",
+    htmlBody: "Filename: " + newFileName + '<a href="https://drive.google.com/drive/folders/1JqaSgrXvHII6T1_Zzsu9T7ErkTfLJ_Dt"> Link to Google Drive</a>',
+  });
 }
